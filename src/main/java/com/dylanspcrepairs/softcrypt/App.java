@@ -9,6 +9,9 @@ import javafx.stage.Stage;
 import java.io.IOException;
 import javafx.scene.control.Alert;
 
+import java.security.Security;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+
 public class App extends Application {
 
     private static Scene scene;
@@ -31,6 +34,7 @@ public class App extends Application {
     }
 
     public static void main(String[] args) {
+        Security.addProvider(new BouncyCastleProvider());
         launch();
     }
     

@@ -6,8 +6,6 @@ import static com.dylanspcrepairs.softcrypt.Crypto.decryptFile;
 import static com.dylanspcrepairs.softcrypt.Crypto.encryptFile;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -45,36 +43,62 @@ public class PrimaryController {
         txtEncKey.setVisible(true);
     }
     
-    @FXML
-    private void progressBarDemo() throws IOException {
-        if (encProgressBar.getProgress() != 0.0) {
-            encProgressBar.setProgress(0.0);
+    private void initAllTabs(){
+        // Resets encrypt tab
+        txtEncOutputDir.setPromptText("");
+        if (txtEncOutputDir.getText().equals(parseDir(lblEncFileName.getText()))){
+            txtEncOutputDir.setText("");
         }
-        else {
-            encProgressBar.setProgress(1.0);
+        lblEncFileName.setText(select);
+        
+        // Resets decrypt tab
+        txtDecOutputDir.setPromptText("");
+        if (txtDecOutputDir.getText().equals(parseDir(lblDecFileName.getText()))){
+            txtDecOutputDir.setText("");
         }
+        lblDecFileName.setText(select);
+        
+        // Nulls out file selection
+        selectedFileEnc = null;
+        selectedFileDec = null;
     }
     
     @FXML
-    private void encrypt() throws Exception{
+    private void encrypt() throws Exception {
         encProgressBar.setProgress(0);
         String password = txtEncKey.getText();
         if (selectedFileEnc != null){
-        encProgressBar.setProgress(0.1);
-        System.out.println("toPath for Selected File: " + selectedFileEnc.toPath());
+            encProgressBar.setProgress(0.1);
+            System.out.println("toPath for Selected File: " + selectedFileEnc.toPath());
         
-        encProgressBar.setProgress(0.3);
-        Path inputFile = selectedFileEnc.toPath();
+            encProgressBar.setProgress(0.2);
+            Path inputFile = selectedFileEnc.toPath();
         
-        encProgressBar.setProgress(0.5);
-        System.out.println("Passkey Entered: " + password);
+            encProgressBar.setProgress(0.3);
+            System.out.println("Passkey Entered: " + password);
         
-        // TODO: Add check to see if file exists already, verify content if so
-        try (InputStream fis = Files.newInputStream(inputFile)) {
-            Path encrypted = encryptFile(fis, inputFile, txtEncOutputDir.getText(), password);
-        }
-        
-        encProgressBar.setProgress(1.0);
+            // TODO: Add check to see if file exists already, verify content if so
+            String outputDir = txtEncOutputDir.getText();
+            if (outputDir.equals("")){
+                outputDir = txtEncOutputDir.getPromptText();
+            }
+            System.out.println("Output Directory: " + outputDir);
+            try{
+                encProgressBar.setProgress(0.5);
+                boolean successful = encryptFile(selectedFileEnc, outputDir , txtEncKey.getText().toCharArray());
+                if (successful){
+                    encProgressBar.setProgress(1.0);
+                    showAlert(AlertType.INFORMATION, "Success","Encryption Successful!", "You can find your new file at " + outputDir + File.separator + selectedFileEnc.getName() + ".enc");
+                }
+                else {
+                    encProgressBar.setProgress(0.0);
+                    showAlert(AlertType.INFORMATION, "Error","Encryption Failed", "Something went wrong, please try again!");
+                }
+            }
+            catch (Exception ex) {
+                System.out.println("Error: " + ex.getMessage());
+                showAlert(AlertType.ERROR, "Error","Encryption Failed", ex.getMessage());
+            }
         }
         else {
             showAlert(AlertType.INFORMATION, "Error","Dude", "No File Selected");
@@ -82,11 +106,11 @@ public class PrimaryController {
     }
     
     @FXML
-    private void decrypt() throws Exception{
+    private void decrypt() throws Exception {
         decProgressBar.setProgress(0);
         String password = txtDecKey.getText();
 
-        if (selectedFileEnc != null) {
+        if (selectedFileDec != null){
             decProgressBar.setProgress(0.1);
             System.out.println("Encrypted file to decrypt: " + selectedFileDec.toPath());
 
@@ -95,18 +119,45 @@ public class PrimaryController {
 
             decProgressBar.setProgress(0.5);
             System.out.println("Passkey Entered: " + password);
+            
+            String outputDir = txtDecOutputDir.getText();
+            if (outputDir.equals("")){
+                outputDir = txtDecOutputDir.getPromptText();
+            }
+            System.out.println("Output Directory: " + outputDir);
+            
+            try{
+                boolean successful = decryptFile(selectedFileDec, outputDir, txtDecKey.getText().toCharArray());
+                if (successful){
+                    // File extension is stripped since we can't access the output filename from here
+                    // Checks if ".enc" is at the end of the filename, strips it out if so for status updates
+                    String outputFile = selectedFileDec.getName();
+                    if (outputFile.endsWith(".enc")){
+                        int lastDotEncIndex = outputFile.lastIndexOf(".enc");
 
-            // Open the encrypted input stream, read IV, decrypt, and write plaintext
-            try (InputStream fis = Files.newInputStream(encryptedFile)) {
-                Path decryptedFile = decryptFile(encryptedFile, txtDecOutputDir.getText(), password);
-                System.out.println("Decrypted file written to: " + decryptedFile);
+                        if (lastDotEncIndex != -1 && lastDotEncIndex == outputFile.length() - 4){
+                            outputFile = outputFile.substring(0, lastDotEncIndex);
+                        }
+                    }
+                    
+                    encProgressBar.setProgress(1.0);
+                    showAlert(AlertType.INFORMATION, "Success","Decryption Successful!", "You can find your new file at " + outputDir + File.separator + outputFile);
+                }
+                else{
+                    encProgressBar.setProgress(0.0);
+                    showAlert(AlertType.INFORMATION, "Error","Encryption Failed", "Something went wrong, please try again!");
+                }
+            }
+            catch (Exception ex){
+                System.out.println("Error: " + ex.getMessage());
+                showAlert(AlertType.ERROR, "Error","Deryption Failed", ex.getMessage());
             }
 
             decProgressBar.setProgress(1.0);
-        } else {
+        }
+        else{
             showAlert(AlertType.INFORMATION, "Error", "Dude", "No File Selected");
-    }
-
+        }
     }
     
     @FXML
@@ -119,26 +170,6 @@ public class PrimaryController {
         handleFileSelection(event, "Decrypt");
     }
     
-    private void initAllTabs(){
-        // Resets encrypt tab
-        txtEncOutputDir.setPromptText("");
-        if(txtEncOutputDir.getText().equals(parseDir(lblEncFileName.getText()))){
-            txtEncOutputDir.setText("");
-        }
-        lblEncFileName.setText(select);
-        
-        // Resets decrypt tab
-        txtDecOutputDir.setPromptText("");
-        if(txtDecOutputDir.getText().equals(parseDir(lblDecFileName.getText()))){
-            txtDecOutputDir.setText("");
-        }
-        lblDecFileName.setText(select);
-        
-        // Nulls out file selection
-        selectedFileEnc = null;
-        selectedFileDec = null;
-    }
-    
     private int handleFileSelection(ActionEvent event, String action) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle(select);
@@ -147,13 +178,16 @@ public class PrimaryController {
         Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
 
         if (action.equalsIgnoreCase("Encrypt")){
+            // Erases decryption key in other tab if present
+            txtDecKey.setText("");
+            
             // Sets the file in the encrypt ui
             selectedFileEnc = fileChooser.showOpenDialog(stage);
-            if (selectedFileEnc != null) {
+            if (selectedFileEnc != null){
                 System.out.println("Selected file: " + selectedFileEnc.getAbsolutePath());
                 lblEncFileName.setText(selectedFileEnc.getAbsolutePath());
                 txtEncOutputDir.setPromptText(selectedFileEnc.getParent());
-                if(txtEncOutputDir.getText().equals("")){
+                if (txtEncOutputDir.getText().equals("")){
                     txtEncOutputDir.setText(selectedFileEnc.getParent());
                 }
             
@@ -165,17 +199,19 @@ public class PrimaryController {
             }
         }
         else if (action.equalsIgnoreCase("Decrypt")){
+            // Erases encryption key in other tab if present
+            txtEncKey.setText("");
+            
             // set file in decrypt ui here
             selectedFileDec = fileChooser.showOpenDialog(stage);
-            if (selectedFileDec != null) {
+            if (selectedFileDec != null){
                 System.out.println("Selected file: " + selectedFileDec.getAbsolutePath());
                 lblDecFileName.setText(selectedFileDec.getAbsolutePath());
                 txtDecOutputDir.setPromptText(selectedFileDec.getParent());
-                if(txtDecOutputDir.getText().equals("")){
+                if (txtDecOutputDir.getText().equals("")){
                     txtDecOutputDir.setText(selectedFileDec.getParent());
                 }
             
-                //System.out.println("File Path: " + lblEncFileName.getText().replaceAll("[\\\\/][^\\\\/]*$", ""));
                 System.out.println("File Path: " + parseDir(lblDecFileName.getText()));
 
             }
@@ -185,7 +221,6 @@ public class PrimaryController {
             }
         }
         else {
-            //selectedFile = null;
             initAllTabs();
             showAlert(AlertType.ERROR, "Error", "Something went wrong!", "Please report this to the developer");
             return 1;
@@ -196,7 +231,7 @@ public class PrimaryController {
     
     @FXML
     private void selectEncDir(ActionEvent event){
-        handleFileSelection(event, "Encrypt");
+        handleDirSelection(event, "Encrypt");
     }
     
     @FXML
@@ -208,16 +243,12 @@ public class PrimaryController {
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle("Select a directory");
 
-        //File defaultDirectory = new File("c:/dev/javafx");
-        //chooser.setInitialDirectory(defaultDirectory);
-        
-        // Get the Stage from the button's scene
         Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
 
         File selectedDirectory = chooser.showDialog(stage);
-        if(selectedDirectory != null){
+        if (selectedDirectory != null){
             System.out.println("Selected directory: " + selectedDirectory.getAbsolutePath());
-            if(action.equalsIgnoreCase("Encrypt")){
+            if (action.equalsIgnoreCase("Encrypt")){
                 txtEncOutputDir.setText(selectedDirectory.getAbsolutePath());
             }
             else {
